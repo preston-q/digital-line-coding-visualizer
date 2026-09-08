@@ -1,10 +1,6 @@
 import numpy as np
 
 
-# --------------------------------------------------
-# Convert bit string to NumPy array
-# --------------------------------------------------
-
 def _bits_array(bits):
     return np.fromiter(
         (int(bit) for bit in bits),

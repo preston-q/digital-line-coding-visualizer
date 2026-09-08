@@ -219,9 +219,11 @@ async function generateWaveform() {
         emptyState.classList.add("hidden");
         waveOutput.classList.remove("hidden");
 
-        signalMeta.textContent = payload.truncated
-            ? `Showing first ${payload.visualized_bit_count.toLocaleString()} of ${payload.bit_count.toLocaleString()} bits`
-            : `${payload.bit_count.toLocaleString()} bits`;
+        signalMeta.textContent = currentMode === "audio"
+            ? `Compressed to ${payload.visualized_bit_count} energy bits`
+            : payload.truncated
+                ? `Showing first ${payload.visualized_bit_count.toLocaleString()} of ${payload.bit_count.toLocaleString()} bits`
+                : `${payload.bit_count.toLocaleString()} bits`;
         signalMeta.classList.remove("hidden");
 
         setStatus(

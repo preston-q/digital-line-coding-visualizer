@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify
 import io
-import wave
 
 import numpy as np
 
@@ -9,10 +8,11 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 
-import linecoding as lc
+import audio
+import linecoding as line_coding
 
 
-MAX_AUDIO_VISUAL_BITS = 48
+MAX_VISUAL_BITS = 48
 
 
 app = Flask(
@@ -297,72 +297,22 @@ def plot_signal(signal, bits, title):
 def encode_bits(bits, scheme):
 
     if scheme == "polar_nrz_l":
-        return lc.nrz_l(bits), "Polar NRZ-L"
+        return line_coding.nrz_l(bits), "Polar NRZ-L"
 
     elif scheme == "polar_nrz_i":
-        return lc.nrz_i(bits), "Polar NRZ-I"
+        return line_coding.nrz_i(bits), "Polar NRZ-I"
 
     elif scheme == "polar_rz":
-        return lc.rz(bits), "Polar RZ"
+        return line_coding.rz(bits), "Polar RZ"
 
     elif scheme == "manchester":
-        return lc.manchester(bits), "Manchester"
+        return line_coding.manchester(bits), "Manchester"
 
     elif scheme == "differential_manchester":
-        return lc.differential_manchester(bits), "Differential Manchester"
+        return line_coding.differential_manchester(bits), "Differential Manchester"
 
     else:
         raise ValueError("Invalid encoding scheme.")
-
-
-# --------------------------------------------------
-# Audio → bits
-# --------------------------------------------------
-
-def audio_to_bits(audio_file, max_bits=None):
-
-    audio_file.seek(0)
-
-    try:
-        with wave.open(audio_file, "rb") as audio:
-            if audio.getcomptype() != "NONE":
-                raise ValueError("Only uncompressed PCM WAV files are supported.")
-
-            frame_count = audio.getnframes()
-            channel_count = audio.getnchannels()
-            sample_width = audio.getsampwidth()
-
-            bits_per_frame = channel_count * sample_width * 8
-            frames_to_read = frame_count
-
-            if max_bits is not None:
-                frames_to_read = min(
-                    frame_count,
-                    (max_bits + bits_per_frame - 1) // bits_per_frame
-                )
-
-            frames = audio.readframes(frames_to_read)
-    except (EOFError, wave.Error) as error:
-        raise ValueError("Audio must be a valid WAV file.") from error
-
-    if sample_width not in (1, 2, 3, 4):
-        raise ValueError(
-            f"Unsupported PCM sample width: {sample_width * 8} bits"
-        )
-
-    if not frames:
-        return "", 0
-
-    # Keep the original PCM byte order. This also supports valid 24-bit WAV
-    # samples, which cannot be represented by a native NumPy integer dtype.
-    bits = np.unpackbits(
-        np.frombuffer(frames, dtype=np.uint8)
-    )
-
-    if max_bits is not None:
-        bits = bits[:max_bits]
-
-    return "".join(bits.astype(str)), frame_count * bits_per_frame
 
 
 # --------------------------------------------------
@@ -378,7 +328,7 @@ def linecode():
 
     if request.is_json:
 
-        data = request.get_json()
+        data = request.get_json(silent=True)
 
         if not data:
             return jsonify({
@@ -414,7 +364,7 @@ def linecode():
                 "error": "Encoding scheme is required."
             }), 400
 
-        visual_bits = bits[:MAX_AUDIO_VISUAL_BITS]
+        visual_bits = bits[:MAX_VISUAL_BITS]
 
         try:
 
@@ -470,11 +420,7 @@ def linecode():
         }), 400
 
     try:
-
-        bits, total_bit_count = audio_to_bits(
-            audio_file,
-            MAX_AUDIO_VISUAL_BITS
-        )
+        bits, source_bit_count = audio.audio_to_energy_bits(audio_file,MAX_VISUAL_BITS)
 
     except Exception as error:
 
@@ -488,11 +434,7 @@ def linecode():
         }), 400
 
     try:
-
-        signal, title = encode_bits(
-            bits,
-            scheme
-        )
+        signal, title = encode_bits(bits,scheme)
 
     except ValueError as error:
 
@@ -500,30 +442,18 @@ def linecode():
             "error": str(error)
         }), 400
 
-    svg = plot_signal(
-        signal,
-        bits,
-        title
-    )
+    svg = plot_signal(signal,bits,title)
 
     return jsonify({
         "mode": "audio",
         "bits": bits,
-        "bit_count": total_bit_count,
+        "source_bit_count": source_bit_count,
+        "encoded_bit_count": len(bits),
         "visualized_bit_count": len(bits),
-        "truncated": total_bit_count > len(bits),
         "scheme": scheme,
         "title": title,
         "svg": svg
     })
 
-
-# --------------------------------------------------
-# Run
-# --------------------------------------------------
-
 if __name__ == "__main__":
-
-    app.run(
-        debug=True
-    )
+    app.run(debug=True)
