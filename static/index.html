@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Digital Line Coding Visualizer</title>
+
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.577.0/dist/umd/lucide.min.js"></script>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+        rel="stylesheet"
+    >
+
+    <link rel="stylesheet" href="index.css">
+</head>
+
+<body>
+    <div class="app-shell technical-grid">
+
+        <header class="border-b border-cyan-100/10 bg-[#081624]/80 px-5 py-5 backdrop-blur md:px-8">
+            <div class="mx-auto flex max-w-7xl items-center gap-4">
+
+                <div class="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-300/30 bg-cyan-300/10 text-cyan-300">
+                    <i data-lucide="activity" aria-hidden="true"></i>
+                </div>
+
+                <div>
+                    <h1 class="font-bold tracking-tight">
+                        Digital Line Coding Visualizer
+                    </h1>
+
+                    <p class="mt-1">
+                        Visualize digital data using common line coding schemes.
+                    </p>
+                </div>
+
+            </div>
+        </header>
+
+
+        <main class="mx-auto w-full max-w-7xl px-5 py-6 md:px-8 md:py-8">
+
+            <div class="grid gap-6 xl:grid-cols-[350px_minmax(0,1fr)]">
+
+                <aside class="space-y-5 fade-up" aria-label="Waveform input controls">
+
+                    <section class="panel rounded-2xl p-4 md:p-5">
+
+                        <div class="mb-4 flex items-center justify-between">
+                            <h2 class="text-sm font-semibold uppercase tracking-[0.16em] text-slate-300">
+                                Input source
+                            </h2>
+
+                            <span class="mono text-[11px] text-cyan-300">
+                                01 / SELECT
+                            </span>
+                        </div>
+
+
+                        <div
+                            class="grid grid-cols-2 gap-2 rounded-xl bg-black/20 p-1.5"
+                            role="tablist"
+                            aria-label="Input mode"
+                        >
+                            <button
+                                id="bit-tab"
+                                class="mode-button is-active focus-ring rounded-lg px-3 py-2.5 mono text-xs font-bold tracking-wide"
+                                type="button"
+                                role="tab"
+                                aria-selected="true"
+                                aria-controls="bit-panel"
+                            >
+                                BIT STRING
+                            </button>
+
+                            <button
+                                id="audio-tab"
+                                class="mode-button focus-ring rounded-lg px-3 py-2.5 mono text-xs font-bold tracking-wide text-slate-300"
+                                type="button"
+                                role="tab"
+                                aria-selected="false"
+                                aria-controls="audio-panel"
+                            >
+                                AUDIO
+                            </button>
+                        </div>
+
+
+                        <div
+                            id="bit-panel"
+                            class="mt-5"
+                            role="tabpanel"
+                            aria-labelledby="bit-tab"
+                        >
+                            <label
+                                class="mb-2 block text-sm font-semibold"
+                                for="bit-input"
+                            >
+                                Bit string
+                            </label>
+
+                            <input
+                                id="bit-input"
+                                class="control-input mono w-full rounded-xl px-3.5 py-3 text-sm tracking-[0.08em]"
+                                type="text"
+                                inputmode="numeric"
+                                autocomplete="off"
+                                spellcheck="false"
+                                placeholder="e.g. 101101"
+                            >
+
+                            <p class="mt-2 mono text-xs leading-5">
+                                Enter a binary sequence containing only 0 and 1.
+                            </p>
+                        </div>
+
+
+                        <div
+                            id="audio-panel"
+                            class="mt-5 hidden"
+                            role="tabpanel"
+                            aria-labelledby="audio-tab"
+                        >
+                            <span class="mb-2 block text-sm font-semibold">
+                                Audio file
+                            </span>
+
+                            <div
+                                id="drop-zone"
+                                class="drop-zone rounded-xl p-5 text-center"
+                            >
+                                <i
+                                    data-lucide="audio-lines"
+                                    class="mx-auto mb-3 h-7 w-7 text-cyan-300"
+                                    aria-hidden="true"
+                                ></i>
+
+                                <p class="text-sm font-semibold">
+                                    Drop an audio file here
+                                </p>
+
+                                <p class="mt-1 text-xs leading-5">
+                                    Upload an audio file to process it into a signal.
+                                </p>
+
+                                <input
+                                    id="audio-input"
+                                    class="sr-only"
+                                    type="file"
+                                    accept="audio/*"
+                                >
+
+                                <button
+                                    id="audio-browse"
+                                    class="focus-ring mt-4 rounded-lg px-3 py-2 text-xs font-semibold"
+                                    type="button"
+                                >
+                                    Browse files
+                                </button>
+                            </div>
+
+                            <p
+                                id="selected-file"
+                                class="mono mt-3 hidden truncate text-xs text-cyan-200"
+                                aria-live="polite"
+                            ></p>
+                        </div>
+
+                    </section>
+
+
+                    <section class="panel rounded-2xl p-4 md:p-5">
+
+                        <div class="mb-4 flex items-center justify-between">
+                            <h2 class="text-sm font-semibold uppercase tracking-[0.16em] text-slate-300">
+                                Encoding
+                            </h2>
+
+                            <span class="mono text-[11px] text-cyan-300">
+                                02 / CONFIGURE
+                            </span>
+                        </div>
+
+                        <label
+                            class="mb-2 block text-sm font-semibold"
+                            for="scheme-select"
+                        >
+                            Line coding scheme
+                        </label>
+
+                        <select
+                            id="scheme-select"
+                            class="scheme-select w-full rounded-xl px-3.5 py-3 text-sm"
+                        >
+                            <option value="polar_nrz_l">Polar NRZ-L</option>
+                            <option value="polar_nrz_i">Polar NRZ-I</option>
+                            <option value="polar_rz">Polar RZ</option>
+                            <option value="manchester">Manchester</option>
+                            <option value="differential_manchester">
+                                Differential Manchester
+                            </option>
+                        </select>
+
+
+                        <button
+                            id="generate-button"
+                            class="generate-button focus-ring mt-5 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-bold"
+                            type="button"
+                        >
+                            <i
+                                data-lucide="zap"
+                                class="h-4 w-4"
+                                aria-hidden="true"
+                            ></i>
+
+                            <span id="generate-label">
+                                Generate Waveform
+                            </span>
+                        </button>
+
+
+                        <div
+                            id="status-row"
+                            class="mt-4 flex min-h-5 items-center gap-2"
+                            aria-live="polite"
+                        >
+                            <span id="status-dot" class="status-dot"></span>
+
+                            <p
+                                id="status-message"
+                                class="text-xs text-slate-400"
+                            >
+                                Ready for signal input.
+                            </p>
+                        </div>
+
+                    </section>
+
+                </aside>
+
+
+                <section
+                    class="panel fade-up overflow-hidden rounded-2xl"
+                    style="animation-delay: 80ms;"
+                >
+
+                    <div class="flex flex-col gap-4 border-b border-cyan-100/10 px-5 py-5 md:flex-row md:items-end md:justify-between md:px-6">
+
+                        <div>
+
+                            <div class="mb-2 flex items-center gap-2">
+                                <span class="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_14px_#48dded]"></span>
+
+                                <span class="mono text-[11px] font-bold tracking-[0.14em] text-cyan-300">
+                                    OUTPUT / SIGNAL TRACE
+                                </span>
+                            </div>
+
+                            <h2 class="font-bold">
+                                Waveform Visualization
+                            </h2>
+
+                            <p class="mt-1">
+                                Generated digital signal representation.
+                            </p>
+
+                        </div>
+
+
+                        <div
+                            id="signal-meta"
+                            class="mono hidden rounded-lg border border-cyan-300/15 bg-cyan-300/5 px-3 py-2 text-xs text-cyan-100"
+                        ></div>
+
+                    </div>
+
+
+                    <div class="wave-scroll">
+
+                        <div
+                            id="wave-canvas"
+                            class="wave-canvas relative flex min-h-[430px] items-center justify-center overflow-hidden p-5 md:p-7"
+                        >
+
+                            <div
+                                id="empty-state"
+                                class="max-w-sm text-center"
+                            >
+
+                                <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/5 text-cyan-300">
+
+                                    <i
+                                        data-lucide="chart-no-axes-combined"
+                                        class="h-7 w-7"
+                                        aria-hidden="true"
+                                    ></i>
+
+                                </div>
+
+                                <h3 class="font-semibold">
+                                    No waveform generated
+                                </h3>
+
+                                <p class="mt-2 text-sm leading-6">
+                                    Enter a binary sequence, choose an encoding scheme,
+                                    and generate the waveform to visualize the signal.
+                                </p>
+
+                            </div>
+
+
+                            <div
+                                id="wave-output"
+                                class="hidden h-full w-full"
+                            ></div>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+            </div>
+            <div class="mt-8 border-t border-cyan-100/10 pt-5 text-center">
+                <p class="mono text-xs text-slate-500">
+                    © 2026 Digital Line Coding Visualizer
+                </p>
+            </div>
+        </main>
+
+    </div>
+
+    <script src="index.js"></script>
+</body>
+</html>
