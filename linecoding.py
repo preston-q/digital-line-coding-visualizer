@@ -1,62 +1,135 @@
+import numpy as np
+
+
+# --------------------------------------------------
+# Convert bit string to NumPy array
+# --------------------------------------------------
+
+def _bits_array(bits):
+    return np.fromiter(
+        (int(bit) for bit in bits),
+        dtype=np.int8
+    )
+
+
+# --------------------------------------------------
 # 1. Polar NRZ-L
+# --------------------------------------------------
+
 def nrz_l(bits):
-    signal = []
 
-    for bit in bits:
-        if bit == '1':
-            signal.append([1])
-        else:
-            signal.append([-1])
+    bits = _bits_array(bits)
 
-    return signal
+    return np.where(
+        bits == 1,
+        1,
+        -1
+    ).astype(np.int8)
 
+
+# --------------------------------------------------
 # 2. Polar NRZ-I
+# --------------------------------------------------
+
 def nrz_i(bits):
-    signal = []
+
+    bits = _bits_array(bits)
+
+    signal = np.empty(
+        len(bits),
+        dtype=np.int8
+    )
+
     level = 1
 
-    for bit in bits:
-        if bit == '1':
+    for i, bit in enumerate(bits):
+
+        if bit == 1:
             level = -level
 
-        signal.append([level])
+        signal[i] = level
 
     return signal
 
+
+# --------------------------------------------------
 # 3. Polar RZ
+# --------------------------------------------------
+
 def rz(bits):
-    signal = []
 
-    for bit in bits:
-        if bit == '1':
-            signal.append([1, 0])
-        else:
-            signal.append([-1, 0])
+    bits = _bits_array(bits)
+
+    levels = np.where(
+        bits == 1,
+        1,
+        -1
+    ).astype(np.int8)
+
+    signal = np.empty(
+        (len(bits), 2),
+        dtype=np.int8
+    )
+
+    signal[:, 0] = levels
+    signal[:, 1] = 0
 
     return signal
 
+
+# --------------------------------------------------
 # 4. Manchester
-def manchester(bits):
-    signal = []
+# --------------------------------------------------
 
-    for bit in bits:
-        if bit == '1':
-            signal.append([-1, 1])
-        else:
-            signal.append([1, -1])
+def manchester(bits):
+
+    bits = _bits_array(bits)
+
+    signal = np.empty(
+        (len(bits), 2),
+        dtype=np.int8
+    )
+
+    signal[:, 0] = np.where(
+        bits == 1,
+        -1,
+        1
+    )
+
+    signal[:, 1] = np.where(
+        bits == 1,
+        1,
+        -1
+    )
 
     return signal
 
+
+# --------------------------------------------------
 # 5. Differential Manchester
+# --------------------------------------------------
+
 def differential_manchester(bits):
-    signal = []
+
+    bits = _bits_array(bits)
+
+    signal = np.empty(
+        (len(bits), 2),
+        dtype=np.int8
+    )
+
     level = 1
 
-    for bit in bits:
-        if bit == '0':
+    for i, bit in enumerate(bits):
+
+        # 0 → transition at beginning of bit
+        if bit == 0:
             level = -level
 
-        signal.append([level, -level])
+        signal[i, 0] = level
+        signal[i, 1] = -level
+
+        # Always transition in the middle
         level = -level
 
     return signal

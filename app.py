@@ -1,10 +1,19 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
 import io
 import wave
+
+import numpy as np
+
 import matplotlib
-import matplotlib.pyplot as plt
-import linecoding as lc
 matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt
+
+import linecoding as lc
+
+
+MAX_AUDIO_VISUAL_BITS = 48
+
 
 app = Flask(
     __name__,
@@ -17,11 +26,13 @@ app = Flask(
 def index():
     return app.send_static_file("index.html")
 
+
 # --------------------------------------------------
 # Plot signal
 # --------------------------------------------------
 
 def plot_signal(signal, bits, title):
+
     text_color = "#eaf7ff"
     waveform_color = "#48dded"
 
@@ -37,14 +48,32 @@ def plot_signal(signal, bits, title):
     current_x = 0
 
     for bit_signal in signal:
-        for level in bit_signal:
+
+        # NRZ-L / NRZ-I
+        if np.isscalar(bit_signal):
+
             x.append(current_x)
-            y.append(level)
+            y.append(bit_signal)
+
             current_x += 1
 
-        if bit_signal:
             x.append(current_x)
-            y.append(bit_signal[-1])
+            y.append(bit_signal)
+
+        # RZ / Manchester / Differential Manchester
+        else:
+
+            for level in bit_signal:
+
+                x.append(current_x)
+                y.append(level)
+
+                current_x += 1
+
+            if len(bit_signal) > 0:
+
+                x.append(current_x)
+                y.append(bit_signal[-1])
 
     signal_end = max(current_x, 1)
 
@@ -90,7 +119,12 @@ def plot_signal(signal, bits, title):
             zorder=0
         )
 
-        midpoint = position + len(bit_signal) / 2
+        if np.isscalar(bit_signal):
+            bit_width = 1
+        else:
+            bit_width = len(bit_signal)
+
+        midpoint = position + bit_width / 2
 
         ax.text(
             midpoint,
@@ -102,9 +136,10 @@ def plot_signal(signal, bits, title):
             color=text_color
         )
 
-        position += len(bit_signal)
+        position += bit_width
 
     # Final bit boundary
+
     ax.axvline(
         signal_end,
         linewidth=0.8,
@@ -254,6 +289,7 @@ def plot_signal(signal, bits, title):
     return output.getvalue()
 
 
+
 # --------------------------------------------------
 # Scheme selection
 # --------------------------------------------------
@@ -283,25 +319,50 @@ def encode_bits(bits, scheme):
 # Audio → bits
 # --------------------------------------------------
 
-def audio_to_bits(audio_file):
-
-    # First implementation: PCM WAV.
-    #
-    # We decode the WAV container and use the actual
-    # audio frame bytes rather than the WAV header.
+def audio_to_bits(audio_file, max_bits=None):
 
     audio_file.seek(0)
 
-    with wave.open(audio_file, "rb") as audio:
+    try:
+        with wave.open(audio_file, "rb") as audio:
+            if audio.getcomptype() != "NONE":
+                raise ValueError("Only uncompressed PCM WAV files are supported.")
 
-        frames = audio.readframes(audio.getnframes())
+            frame_count = audio.getnframes()
+            channel_count = audio.getnchannels()
+            sample_width = audio.getsampwidth()
 
-    bits = "".join(
-        f"{byte:08b}"
-        for byte in frames
+            bits_per_frame = channel_count * sample_width * 8
+            frames_to_read = frame_count
+
+            if max_bits is not None:
+                frames_to_read = min(
+                    frame_count,
+                    (max_bits + bits_per_frame - 1) // bits_per_frame
+                )
+
+            frames = audio.readframes(frames_to_read)
+    except (EOFError, wave.Error) as error:
+        raise ValueError("Audio must be a valid WAV file.") from error
+
+    if sample_width not in (1, 2, 3, 4):
+        raise ValueError(
+            f"Unsupported PCM sample width: {sample_width * 8} bits"
+        )
+
+    if not frames:
+        return "", 0
+
+    # Keep the original PCM byte order. This also supports valid 24-bit WAV
+    # samples, which cannot be represented by a native NumPy integer dtype.
+    bits = np.unpackbits(
+        np.frombuffer(frames, dtype=np.uint8)
     )
 
-    return bits
+    if max_bits is not None:
+        bits = bits[:max_bits]
+
+    return "".join(bits.astype(str)), frame_count * bits_per_frame
 
 
 # --------------------------------------------------
@@ -353,23 +414,33 @@ def linecode():
                 "error": "Encoding scheme is required."
             }), 400
 
+        visual_bits = bits[:MAX_AUDIO_VISUAL_BITS]
+
         try:
-            signal, title = encode_bits(bits, scheme)
+
+            signal, title = encode_bits(
+                visual_bits,
+                scheme
+            )
 
         except ValueError as error:
+
             return jsonify({
                 "error": str(error)
             }), 400
 
         svg = plot_signal(
             signal,
-            bits,
+            visual_bits,
             title
         )
 
         return jsonify({
             "mode": "bits",
-            "bits": bits,
+            "bits": visual_bits,
+            "bit_count": len(bits),
+            "visualized_bit_count": len(visual_bits),
+            "truncated": len(bits) > len(visual_bits),
             "scheme": scheme,
             "title": title,
             "svg": svg
@@ -399,9 +470,14 @@ def linecode():
         }), 400
 
     try:
-        bits = audio_to_bits(audio_file)
+
+        bits, total_bit_count = audio_to_bits(
+            audio_file,
+            MAX_AUDIO_VISUAL_BITS
+        )
 
     except Exception as error:
+
         return jsonify({
             "error": f"Could not process audio file: {error}"
         }), 400
@@ -412,9 +488,14 @@ def linecode():
         }), 400
 
     try:
-        signal, title = encode_bits(bits, scheme)
+
+        signal, title = encode_bits(
+            bits,
+            scheme
+        )
 
     except ValueError as error:
+
         return jsonify({
             "error": str(error)
         }), 400
@@ -428,7 +509,9 @@ def linecode():
     return jsonify({
         "mode": "audio",
         "bits": bits,
-        "bit_count": len(bits),
+        "bit_count": total_bit_count,
+        "visualized_bit_count": len(bits),
+        "truncated": total_bit_count > len(bits),
         "scheme": scheme,
         "title": title,
         "svg": svg
@@ -440,6 +523,7 @@ def linecode():
 # --------------------------------------------------
 
 if __name__ == "__main__":
+
     app.run(
         debug=True
     )

@@ -83,6 +83,17 @@ function setLoading(isLoading) {
 function setFile(file) {
     if (!file) return;
 
+    if (
+        file.type !== "audio/wav" &&
+        !file.name.toLowerCase().endsWith(".wav")
+    ) {
+        setStatus(
+            "Please choose an uncompressed PCM WAV file.",
+            "error"
+        );
+        return;
+    }
+
     chosenFile = file;
 
     selectedFile.textContent = file.name;
@@ -208,6 +219,11 @@ async function generateWaveform() {
         emptyState.classList.add("hidden");
         waveOutput.classList.remove("hidden");
 
+        signalMeta.textContent = payload.truncated
+            ? `Showing first ${payload.visualized_bit_count.toLocaleString()} of ${payload.bit_count.toLocaleString()} bits`
+            : `${payload.bit_count.toLocaleString()} bits`;
+        signalMeta.classList.remove("hidden");
+
         setStatus(
             "Waveform generated successfully.",
             "success"
@@ -285,14 +301,11 @@ dropZone.addEventListener(
         const file =
             event.dataTransfer.files[0];
 
-        if (
-            file &&
-            file.type.startsWith("audio/")
-        ) {
+        if (file) {
             setFile(file);
         } else {
             setStatus(
-                "Please drop a supported audio file.",
+                "Please drop an uncompressed PCM WAV file.",
                 "error"
             );
         }
